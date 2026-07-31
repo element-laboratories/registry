@@ -1,5 +1,29 @@
 {
   "schemaVersion": 1,
   "resource": "element_sdk",
-  "releases": []
+  "releases": [
+    {
+      "version": "0.1.0-alpha.2",
+      "channel": "candidate",
+      "source": {
+        "repository": "element-laboratories/platform",
+        "tag": "sdk-v0.1.0-alpha.2",
+        "commit": "fdeb9405b08cd176409fbc327457badd01a56f84"
+      },
+      "artifact": {
+        "sha256": "a04ba27e9ae48b4ada994c076257af07c4dd07df9da4a1ed41eb0ad4e5e83f13",
+        "bytes": 119787
+      },
+      "runtime": {
+        "hash": "1df6febf0c55f3c3f9ac0935b37ba6c2fa17a4d3fc690d95c02390e00ee95cdf",
+        "packageVersion": "0.1.0-alpha.2",
+        "compilerVersion": "2.0.0-alpha.13"
+      },
+      "cfx": {
+        "assetId": 1007363,
+        "versionId": 1549298
+      },
+      "publishedAt": "2026-07-31T20:54:41.080Z"
+    }
+  ]
 }

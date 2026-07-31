@@ -2,7 +2,10 @@
   "schemaVersion": 1,
   "sdk": {
     "stable": null,
-    "candidate": null
+    "candidate": {
+      "version": "0.1.0-alpha.2",
+      "publishedAt": "2026-07-31T20:54:41.080Z"
+    }
   },
   "products": {}
 }
