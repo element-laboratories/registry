@@ -71,13 +71,33 @@ describe("release catalog", () => {
     await assert.rejects(catalog(root, "--write"), /records no usable runtime/);
   });
 
-  it("refuses one runtime published under two versions", async () => {
+  it("refuses one archive published under two versions", async () => {
     const shared = "e".repeat(64);
     const root = await fixture({
-      sdk: sdkRecord([sdkRelease("1.0.0", shared), sdkRelease("1.0.1", shared)]),
+      sdk: sdkRecord([
+        sdkRelease("1.0.0", runtimeFor("1.0.0"), shared),
+        sdkRelease("1.0.1", runtimeFor("1.0.1"), shared),
+      ]),
     });
 
     await assert.rejects(catalog(root, "--write"), /is published twice/);
+  });
+
+  // A packaging fix changes the archive and nothing else. It has to be publishable, or a file that
+  // should never have shipped can never be removed.
+  it("accepts a repackaged release carrying an already published runtime", async () => {
+    const shared = runtimeFor("1.0.0");
+    const first = sdkRelease("1.0.0", shared);
+    const root = await fixture({
+      sdk: sdkRecord([first, sdkRelease("1.0.1", shared)]),
+      products: { element_starter: productRecord([productRelease("2.0.0", first)]) },
+    });
+
+    await catalog(root, "--write");
+
+    const index = JSON.parse(await readFile(path.join(root, "index.json"), "utf8"));
+    assert.equal(index.sdk.stable.version, "1.0.1");
+    assert.equal(index.products.element_starter.stable.version, "2.0.0");
   });
 
   it("refuses a product built against an SDK runtime nobody published", async () => {
@@ -98,7 +118,7 @@ describe("release catalog", () => {
       products: { element_starter: productRecord([release]) },
     });
 
-    await assert.rejects(catalog(root, "--write"), /that runtime was published as 1\.0\.0/);
+    await assert.rejects(catalog(root, "--write"), /that runtime is published as 1\.0\.0/);
   });
 
   it("publishes a product whose SDK runtime is downloadable", async () => {
@@ -180,15 +200,33 @@ describe("record-release", () => {
     );
   });
 
-  it("refuses a second SDK version carrying an already published runtime", async () => {
+  it("refuses a second SDK version carrying already published bytes", async () => {
     const root = await fixture({ sdk: sdkRecord([]) });
     const receipt = { schemaVersion: 1, resource: "element_sdk", ...sdkRelease("0.3.0") };
 
     await record(root, receipt);
     await assert.rejects(
-      record(root, { ...receipt, ...sdkRelease("0.3.1", runtimeFor("0.3.0")) }),
-      /is already published as element_sdk 0\.3\.0/,
+      record(root, {
+        ...receipt,
+        ...sdkRelease("0.3.1", runtimeFor("0.3.1"), archiveFor("0.3.0")),
+      }),
+      /already published as element_sdk 0\.3\.0/,
     );
+  });
+
+  it("records a repackaged release of an already published runtime", async () => {
+    const root = await fixture({ sdk: sdkRecord([]) });
+    const receipt = { schemaVersion: 1, resource: "element_sdk", ...sdkRelease("0.3.0") };
+
+    await record(root, receipt);
+    await record(root, { ...receipt, ...sdkRelease("0.3.1", runtimeFor("0.3.0")) });
+
+    const stored = JSON.parse(await readFile(path.join(root, "sdk.json"), "utf8"));
+    assert.deepEqual(
+      stored.releases.map((release) => release.version),
+      ["0.3.0", "0.3.1"],
+    );
+    assert.equal(stored.releases[0].runtime.hash, stored.releases[1].runtime.hash);
   });
 
   it("records a product receipt carrying the SDK resource it needs", async () => {
@@ -256,7 +294,7 @@ function sdkRecord(releases) {
   return { schemaVersion: 1, resource: "element_sdk", releases };
 }
 
-function sdkRelease(version, runtimeHash = runtimeFor(version)) {
+function sdkRelease(version, runtimeHash = runtimeFor(version), archiveSha = archiveFor(version)) {
   return {
     version,
     channel: version.includes("-") ? "candidate" : "stable",
@@ -265,15 +303,24 @@ function sdkRelease(version, runtimeHash = runtimeFor(version)) {
       tag: `sdk-v${version}`,
       commit: "a".repeat(40),
     },
-    artifact: { sha256: "c".repeat(64), bytes: 1024 },
+    artifact: { sha256: archiveSha, bytes: 1024 },
     runtime: { hash: runtimeHash, packageVersion: "0.4.1", compilerVersion: "2.0.0-alpha.13" },
     cfx: { assetId: 42, versionId: 7 },
     publishedAt: "2026-07-28T00:00:00.000Z",
   };
 }
 
+/** Distinct, stable digests per version, so no fixture republishes one archive by accident. */
+function archiveFor(version) {
+  return digest(`archive-${version}`);
+}
+
 function runtimeFor(version) {
-  return [...version]
+  return digest(version);
+}
+
+function digest(value) {
+  return [...value]
     .reduce((sum, char) => sum + char.charCodeAt(0), 0)
     .toString(16)
     .padStart(64, "0");

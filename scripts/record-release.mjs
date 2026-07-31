@@ -78,15 +78,14 @@ const release = {
   publishedAt: receipt.publishedAt,
 };
 
-if (isSdk) {
-  const sameRuntime = record.releases.find(
-    (entry) => entry.runtime?.hash === release.runtime.hash && entry.version !== release.version,
-  );
-  if (sameRuntime !== undefined) {
-    throw new Error(
-      `Runtime ${release.runtime.hash} is already published as ${SDK_RESOURCE} ${sameRuntime.version}`,
-    );
-  }
+// A release is its archive. An unchanged runtime under a new version is a packaging fix and is
+// allowed; identical bytes under a new version publish nothing and are not.
+const sameArchive = record.releases.find(
+  (entry) =>
+    entry.artifact?.sha256 === release.artifact?.sha256 && entry.version !== release.version,
+);
+if (sameArchive !== undefined) {
+  throw new Error(`These bytes are already published as ${receipt.resource} ${sameArchive.version}`);
 }
 
 const existing = record.releases.find((entry) => entry.version === release.version);

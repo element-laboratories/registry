@@ -14,9 +14,14 @@ if (mode !== "--check" && mode !== "--write") {
 
 const sdkRecord = JSON.parse(await readFile(sdkPath, "utf8"));
 validateSdkRecord(sdkRecord, "sdk.json");
-const publishedRuntimes = new Map(
-  sdkRecord.releases.map((release) => [release.runtime.hash, release.version]),
-);
+// A runtime may be carried by more than one version once a packaging fix ships, so a product is
+// checked against the set of versions carrying its runtime rather than against a single answer.
+const publishedRuntimes = new Map();
+for (const release of sdkRecord.releases) {
+  const versions = publishedRuntimes.get(release.runtime.hash) ?? [];
+  versions.push(release.version);
+  publishedRuntimes.set(release.runtime.hash, versions);
+}
 
 const files = (await readdir(productsRoot).catch(ignoreMissing))
   .filter((file) => file.endsWith(".json"))
@@ -49,15 +54,15 @@ if (mode === "--write") {
 }
 
 function assertSdkRuntimePublished(release, file) {
-  const version = publishedRuntimes.get(release.sdk.runtimeHash);
-  if (version === undefined) {
+  const versions = publishedRuntimes.get(release.sdk.runtimeHash);
+  if (versions === undefined) {
     throw new Error(
       `${file}: release ${release.version} needs an ${SDK_RESOURCE} runtime that has no published release`,
     );
   }
-  if (version !== release.sdk.resourceVersion) {
+  if (!versions.includes(release.sdk.resourceVersion)) {
     throw new Error(
-      `${file}: release ${release.version} depends on ${SDK_RESOURCE} ${release.sdk.resourceVersion}, but that runtime was published as ${version}`,
+      `${file}: release ${release.version} depends on ${SDK_RESOURCE} ${release.sdk.resourceVersion}, but that runtime is published as ${versions.join(", ")}`,
     );
   }
 }
@@ -87,7 +92,7 @@ function validateSdkRecord(record, file) {
 
 function validateReleases(releases, file, isProduct) {
   const versions = new Set();
-  const runtimes = new Set();
+  const archives = new Set();
   for (const release of releases) {
     if (
       semver(release?.version) === null ||
@@ -128,10 +133,12 @@ function validateReleases(releases, file, isProduct) {
       ) {
         throw new Error(`${file}: SDK release ${release.version} records no usable runtime`);
       }
-      if (runtimes.has(release.runtime.hash)) {
-        throw new Error(`${file}: runtime ${release.runtime.hash} is published twice`);
+      // Identity is the archive, not the runtime: a repackaged release carries the same runtime on
+      // purpose. Only identical bytes under two versions publish nothing.
+      if (archives.has(release.artifact.sha256)) {
+        throw new Error(`${file}: archive ${release.artifact.sha256} is published twice`);
       }
-      runtimes.add(release.runtime.hash);
+      archives.add(release.artifact.sha256);
     }
     if (release.channel === "stable" && semver(release.version).prerelease.length > 0) {
       throw new Error(`${file}: stable release ${release.version} cannot be a prerelease`);
