@@ -12,6 +12,12 @@ if (mode !== "--check" && mode !== "--write") {
   throw new Error("Usage: node scripts/catalog.mjs <--check|--write>");
 }
 
+const sdkRecord = JSON.parse(await readFile(sdkPath, "utf8"));
+validateSdkRecord(sdkRecord, "sdk.json");
+const publishedRuntimes = new Map(
+  sdkRecord.releases.map((release) => [release.runtime.hash, release.version]),
+);
+
 const files = (await readdir(productsRoot).catch(ignoreMissing))
   .filter((file) => file.endsWith(".json"))
   .sort();
@@ -28,9 +34,6 @@ for (const file of files) {
   products[record.resource] = heads(record.releases);
 }
 
-const sdkRecord = JSON.parse(await readFile(sdkPath, "utf8"));
-validateSdkRecord(sdkRecord, "sdk.json");
-
 const generated = `${JSON.stringify(
   { schemaVersion: 1, sdk: heads(sdkRecord.releases), products },
   null,
@@ -42,6 +45,20 @@ if (mode === "--write") {
   const current = await readFile(indexPath, "utf8");
   if (current !== generated) {
     throw new Error("index.json is stale; run npm run generate");
+  }
+}
+
+function assertSdkRuntimePublished(release, file) {
+  const version = publishedRuntimes.get(release.sdk.runtimeHash);
+  if (version === undefined) {
+    throw new Error(
+      `${file}: release ${release.version} needs an ${SDK_RESOURCE} runtime that has no published release`,
+    );
+  }
+  if (version !== release.sdk.resourceVersion) {
+    throw new Error(
+      `${file}: release ${release.version} depends on ${SDK_RESOURCE} ${release.sdk.resourceVersion}, but that runtime was published as ${version}`,
+    );
   }
 }
 
@@ -70,6 +87,7 @@ function validateSdkRecord(record, file) {
 
 function validateReleases(releases, file, isProduct) {
   const versions = new Set();
+  const runtimes = new Set();
   for (const release of releases) {
     if (
       semver(release?.version) === null ||
@@ -84,16 +102,36 @@ function validateReleases(releases, file, isProduct) {
     ) {
       throw new Error(`${file}: invalid release ${release?.version ?? "<unknown>"}`);
     }
+    if (
+      !Number.isSafeInteger(release?.cfx?.assetId) ||
+      !Number.isSafeInteger(release?.cfx?.versionId)
+    ) {
+      throw new Error(`${file}: release ${release.version} records no portal asset`);
+    }
     if (isProduct) {
       if (
         semver(release?.sdk?.version) === null ||
-        !Number.isSafeInteger(release?.cfx?.assetId) ||
-        !Number.isSafeInteger(release?.cfx?.versionId)
+        semver(release?.sdk?.resourceVersion) === null ||
+        !/^[0-9a-f]{64}$/.test(release?.sdk?.runtimeHash ?? "")
       ) {
         throw new Error(`${file}: invalid release ${release.version}`);
       }
-    } else if (release.sdk !== undefined || release.cfx !== undefined) {
-      throw new Error(`${file}: SDK release ${release.version} cannot carry sdk or cfx evidence`);
+      assertSdkRuntimePublished(release, file);
+    } else {
+      if (release.sdk !== undefined) {
+        throw new Error(`${file}: SDK release ${release.version} cannot carry sdk evidence`);
+      }
+      if (
+        !/^[0-9a-f]{64}$/.test(release?.runtime?.hash ?? "") ||
+        semver(release?.runtime?.packageVersion) === null ||
+        typeof release?.runtime?.compilerVersion !== "string"
+      ) {
+        throw new Error(`${file}: SDK release ${release.version} records no usable runtime`);
+      }
+      if (runtimes.has(release.runtime.hash)) {
+        throw new Error(`${file}: runtime ${release.runtime.hash} is published twice`);
+      }
+      runtimes.add(release.runtime.hash);
     }
     if (release.channel === "stable" && semver(release.version).prerelease.length > 0) {
       throw new Error(`${file}: stable release ${release.version} cannot be a prerelease`);

@@ -4,6 +4,9 @@ import process from "node:process";
 
 const SDK_RESOURCE = "element_sdk";
 const identifier = (value) => typeof value === "string" && /^[a-z][a-z0-9_-]*$/.test(value);
+const sha256 = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+const portalIds = (cfx) =>
+  Number.isSafeInteger(cfx?.assetId) && Number.isSafeInteger(cfx?.versionId);
 
 const receiptPath = process.argv[2];
 if (receiptPath === undefined) {
@@ -11,20 +14,37 @@ if (receiptPath === undefined) {
 }
 const root = path.resolve(import.meta.dirname, "..");
 const receipt = JSON.parse(await readFile(path.resolve(receiptPath), "utf8"));
-if (receipt?.schemaVersion !== 1 || !identifier(receipt?.resource)) {
+if (!identifier(receipt?.resource)) {
   throw new Error("Unsupported deployment receipt");
 }
 
 const isSdk = receipt.resource === SDK_RESOURCE;
 if (isSdk) {
+  if (receipt.schemaVersion !== 1) {
+    throw new Error("Unsupported SDK deployment receipt");
+  }
   if (receipt.product !== undefined) {
     throw new Error(`${SDK_RESOURCE} is not a product and must not carry a product identity`);
   }
-  if (receipt.sdk !== undefined || receipt.cfx !== undefined) {
-    throw new Error(`${SDK_RESOURCE} releases cannot carry sdk or cfx evidence`);
+  if (receipt.sdk !== undefined) {
+    throw new Error(`${SDK_RESOURCE} releases cannot carry sdk evidence`);
   }
-} else if (!identifier(receipt?.product)) {
-  throw new Error("Unsupported deployment receipt");
+  if (!sha256(receipt.runtime?.hash)) {
+    throw new Error(`${SDK_RESOURCE} releases must record the runtime hash they publish`);
+  }
+  if (!portalIds(receipt.cfx)) {
+    throw new Error(`${SDK_RESOURCE} releases must record the portal asset they were uploaded to`);
+  }
+} else {
+  if (receipt.schemaVersion !== 2 || !identifier(receipt.product)) {
+    throw new Error("Unsupported deployment receipt");
+  }
+  if (!sha256(receipt.sdk?.runtimeHash) || typeof receipt.sdk?.resourceVersion !== "string") {
+    throw new Error("A product release must record the SDK resource version and runtime hash");
+  }
+  if (!portalIds(receipt.cfx)) {
+    throw new Error("A product release must record the portal asset it was uploaded to");
+  }
 }
 
 const file = isSdk
@@ -53,9 +73,22 @@ const release = {
   channel: receipt.channel,
   source: receipt.source,
   artifact: receipt.artifact,
-  ...(isSdk ? {} : { sdk: receipt.sdk, cfx: receipt.cfx }),
+  ...(isSdk ? { runtime: receipt.runtime } : { sdk: receipt.sdk }),
+  cfx: receipt.cfx,
   publishedAt: receipt.publishedAt,
 };
+
+if (isSdk) {
+  const sameRuntime = record.releases.find(
+    (entry) => entry.runtime?.hash === release.runtime.hash && entry.version !== release.version,
+  );
+  if (sameRuntime !== undefined) {
+    throw new Error(
+      `Runtime ${release.runtime.hash} is already published as ${SDK_RESOURCE} ${sameRuntime.version}`,
+    );
+  }
+}
+
 const existing = record.releases.find((entry) => entry.version === release.version);
 if (existing !== undefined) {
   if (JSON.stringify(existing) !== JSON.stringify(release)) {

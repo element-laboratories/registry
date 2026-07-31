@@ -57,11 +57,62 @@ describe("release catalog", () => {
     await assert.rejects(catalog(root, "--write"), /not a product; record it in sdk\.json/);
   });
 
-  it("refuses an SDK release carrying product-only evidence", async () => {
-    const release = { ...sdkRelease("1.0.0"), cfx: { assetId: 1, versionId: 2 } };
+  it("refuses an SDK release claiming an SDK it was built against", async () => {
+    const release = { ...sdkRelease("1.0.0"), sdk: { version: "0.9.0" } };
     const root = await fixture({ sdk: sdkRecord([release]) });
 
-    await assert.rejects(catalog(root, "--write"), /cannot carry sdk or cfx evidence/);
+    await assert.rejects(catalog(root, "--write"), /cannot carry sdk evidence/);
+  });
+
+  it("refuses an SDK release that records no runtime", async () => {
+    const { runtime: _runtime, ...release } = sdkRelease("1.0.0");
+    const root = await fixture({ sdk: sdkRecord([release]) });
+
+    await assert.rejects(catalog(root, "--write"), /records no usable runtime/);
+  });
+
+  it("refuses one runtime published under two versions", async () => {
+    const shared = "e".repeat(64);
+    const root = await fixture({
+      sdk: sdkRecord([sdkRelease("1.0.0", shared), sdkRelease("1.0.1", shared)]),
+    });
+
+    await assert.rejects(catalog(root, "--write"), /is published twice/);
+  });
+
+  it("refuses a product built against an SDK runtime nobody published", async () => {
+    const root = await fixture({
+      sdk: sdkRecord([sdkRelease("1.0.0")]),
+      products: { element_starter: productRecord([productRelease("2.0.0", sdkRelease("1.4.0"))]) },
+    });
+
+    await assert.rejects(catalog(root, "--write"), /has no published release/);
+  });
+
+  it("refuses a product naming a resource version other than the one carrying its runtime", async () => {
+    const sdk = sdkRelease("1.0.0");
+    const release = productRelease("2.0.0", sdk);
+    release.sdk.resourceVersion = "1.1.0";
+    const root = await fixture({
+      sdk: sdkRecord([sdk]),
+      products: { element_starter: productRecord([release]) },
+    });
+
+    await assert.rejects(catalog(root, "--write"), /that runtime was published as 1\.0\.0/);
+  });
+
+  it("publishes a product whose SDK runtime is downloadable", async () => {
+    const sdk = sdkRelease("1.0.0");
+    const root = await fixture({
+      sdk: sdkRecord([sdk]),
+      products: { element_starter: productRecord([productRelease("2.0.0", sdk)]) },
+    });
+
+    await catalog(root, "--write");
+
+    const index = JSON.parse(await readFile(path.join(root, "index.json"), "utf8"));
+    assert.equal(index.products.element_starter.stable.version, "2.0.0");
+    assert.equal(index.sdk.stable.version, "1.0.0");
   });
 
   it("refuses an SDK prerelease on the stable channel", async () => {
@@ -81,7 +132,10 @@ describe("record-release", () => {
     const stored = JSON.parse(await readFile(path.join(root, "sdk.json"), "utf8"));
     assert.equal(stored.releases.length, 1);
     assert.equal(stored.releases[0].version, "0.3.0");
-    assert.equal(stored.releases[0].cfx, undefined);
+    assert.equal(stored.releases[0].runtime.hash, runtimeFor("0.3.0"));
+    assert.deepEqual(stored.releases[0].cfx, { assetId: 42, versionId: 7 });
+    assert.equal(stored.releases[0].sdk, undefined);
+    assert.equal(stored.releases[0].product, undefined);
     await catalog(root, "--write");
     const index = JSON.parse(await readFile(path.join(root, "index.json"), "utf8"));
     assert.equal(index.sdk.stable.version, "0.3.0");
@@ -115,13 +169,71 @@ describe("record-release", () => {
       /must not carry a product identity/,
     );
   });
+
+  it("refuses an SDK receipt with no runtime hash", async () => {
+    const root = await fixture({ sdk: sdkRecord([]) });
+    const { runtime: _runtime, ...release } = sdkRelease("0.3.0");
+
+    await assert.rejects(
+      record(root, { schemaVersion: 1, resource: "element_sdk", ...release }),
+      /must record the runtime hash/,
+    );
+  });
+
+  it("refuses a second SDK version carrying an already published runtime", async () => {
+    const root = await fixture({ sdk: sdkRecord([]) });
+    const receipt = { schemaVersion: 1, resource: "element_sdk", ...sdkRelease("0.3.0") };
+
+    await record(root, receipt);
+    await assert.rejects(
+      record(root, { ...receipt, ...sdkRelease("0.3.1", runtimeFor("0.3.0")) }),
+      /is already published as element_sdk 0\.3\.0/,
+    );
+  });
+
+  it("records a product receipt carrying the SDK resource it needs", async () => {
+    const root = await fixture({ sdk: sdkRecord([]) });
+    const sdk = sdkRelease("1.0.0");
+
+    await record(root, {
+      schemaVersion: 2,
+      product: "element_starter",
+      resource: "element_starter",
+      ...productRelease("2.0.0", sdk),
+    });
+
+    const stored = JSON.parse(
+      await readFile(path.join(root, "products", "element_starter.json"), "utf8"),
+    );
+    assert.equal(stored.releases[0].sdk.resourceVersion, "1.0.0");
+    assert.equal(stored.releases[0].sdk.runtimeHash, sdk.runtime.hash);
+  });
+
+  it("refuses a product receipt that names no SDK resource", async () => {
+    const root = await fixture({ sdk: sdkRecord([]) });
+    const release = productRelease("2.0.0", sdkRelease("1.0.0"));
+    release.sdk = { version: "0.4.1" };
+
+    await assert.rejects(
+      record(root, {
+        schemaVersion: 2,
+        product: "element_starter",
+        resource: "element_starter",
+        ...release,
+      }),
+      /must record the SDK resource version and runtime hash/,
+    );
+  });
 });
 
-async function fixture({ sdk }) {
+async function fixture({ sdk, products = {} }) {
   const root = await mkdtemp(path.join(tmpdir(), "el-registry-"));
   roots.push(root);
   await cp(scripts, path.join(root, "scripts"), { recursive: true });
   await mkdir(path.join(root, "products"), { recursive: true });
+  for (const [resource, record] of Object.entries(products)) {
+    await writeFile(path.join(root, "products", `${resource}.json`), json(record));
+  }
   await writeFile(path.join(root, "sdk.json"), json(sdk));
   await writeFile(path.join(root, "index.json"), json({ schemaVersion: 1 }));
   return root;
@@ -144,13 +256,46 @@ function sdkRecord(releases) {
   return { schemaVersion: 1, resource: "element_sdk", releases };
 }
 
-function sdkRelease(version) {
+function sdkRelease(version, runtimeHash = runtimeFor(version)) {
   return {
     version,
     channel: version.includes("-") ? "candidate" : "stable",
-    source: { repository: "element-laboratories/platform", tag: `v${version}`, commit: "a".repeat(40) },
+    source: {
+      repository: "element-laboratories/platform",
+      tag: `sdk-v${version}`,
+      commit: "a".repeat(40),
+    },
     artifact: { sha256: "c".repeat(64), bytes: 1024 },
+    runtime: { hash: runtimeHash, packageVersion: "0.4.1", compilerVersion: "2.0.0-alpha.13" },
+    cfx: { assetId: 42, versionId: 7 },
     publishedAt: "2026-07-28T00:00:00.000Z",
+  };
+}
+
+function runtimeFor(version) {
+  return [...version]
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    .toString(16)
+    .padStart(64, "0");
+}
+
+function productRecord(releases) {
+  return { schemaVersion: 1, product: "element_starter", resource: "element_starter", releases };
+}
+
+function productRelease(version, sdk) {
+  return {
+    version,
+    channel: version.includes("-") ? "candidate" : "stable",
+    source: {
+      repository: "element-laboratories/element-starter",
+      tag: `v${version}`,
+      commit: "b".repeat(40),
+    },
+    artifact: { sha256: "d".repeat(64), bytes: 2048 },
+    sdk: { version: "0.4.1", resourceVersion: sdk.version, runtimeHash: sdk.runtime.hash },
+    cfx: { assetId: 11, versionId: 3 },
+    publishedAt: "2026-07-29T00:00:00.000Z",
   };
 }
 
