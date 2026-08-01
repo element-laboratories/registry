@@ -1,0 +1,15 @@
+{
+  "name": "@element-laboratories/release-catalog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/catalog.mjs --check",
+    "test": "node --test \"scripts/*.test.mjs\"",
+    "generate": "node scripts/catalog.mjs --write",
+    "record": "node scripts/record-release.mjs"
+  },
+  "engines": {
+    "node": ">=24.18.0 <25"
+  }
+}

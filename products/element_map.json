@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "product": "element_map",
+  "resource": "element_map",
+  "releases": [
+    {
+      "version": "0.1.0-alpha.3",
+      "channel": "candidate",
+      "source": {
+        "repository": "element-laboratories/product-map",
+        "tag": "v0.1.0-alpha.3",
+        "commit": "9c063732baf77d5d4aa391426ab0cd01f30fd4e9"
+      },
+      "artifact": {
+        "sha256": "25e95aee98ead3b6df8925ef8fb06d7e0685c3810854060a190af02772715675",
+        "bytes": 1403673
+      },
+      "sdk": {
+        "version": "0.1.0-alpha.3",
+        "resourceVersion": "0.1.0-alpha.3",
+        "runtimeHash": "1df6febf0c55f3c3f9ac0935b37ba6c2fa17a4d3fc690d95c02390e00ee95cdf"
+      },
+      "cfx": {
+        "assetId": 1061793,
+        "versionId": 1550699
+      },
+      "publishedAt": "2026-08-01T12:16:18.327Z"
+    }
+  ]
+}

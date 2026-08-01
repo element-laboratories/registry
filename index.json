@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sdk": {
+    "stable": null,
+    "candidate": {
+      "version": "0.1.0-alpha.3",
+      "publishedAt": "2026-07-31T21:25:49.241Z"
+    }
+  },
+  "products": {
+    "element_map": {
+      "stable": null,
+      "candidate": {
+        "version": "0.1.0-alpha.3",
+        "publishedAt": "2026-08-01T12:16:18.327Z"
+      }
+    }
+  }
+}
