@@ -47,6 +47,29 @@
         "versionId": 1549384
       },
       "publishedAt": "2026-07-31T21:25:49.241Z"
+    },
+    {
+      "version": "0.1.0-alpha.4",
+      "channel": "candidate",
+      "source": {
+        "repository": "element-laboratories/platform",
+        "tag": "sdk-v0.1.0-alpha.4",
+        "commit": "6b7b27c2357150b46fe963efb6f91035ec35d30f"
+      },
+      "artifact": {
+        "sha256": "e44fafdce26e311d743081d05b1afff18d833426930543a3aa068dffcbb3b05c",
+        "bytes": 119289
+      },
+      "runtime": {
+        "hash": "721452129545e1eef7b94b0a3039763b770197800861b6079ed4dc5366b58960",
+        "packageVersion": "0.1.0-alpha.5",
+        "compilerVersion": "2.0.0-alpha.13"
+      },
+      "cfx": {
+        "assetId": 1007363,
+        "versionId": 1560674
+      },
+      "publishedAt": "2026-08-06T02:38:34.019Z"
     }
   ]
 }
