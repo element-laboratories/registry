@@ -76,6 +76,9 @@ const release = {
   ...(isSdk ? { runtime: receipt.runtime } : { sdk: receipt.sdk }),
   cfx: receipt.cfx,
   publishedAt: receipt.publishedAt,
+  ...(typeof receipt.changelog === "string" && receipt.changelog.trim() !== ""
+    ? { changelog: receipt.changelog }
+    : {}),
 };
 
 const sameArchive = record.releases.find(

@@ -260,6 +260,55 @@ describe("record-release", () => {
       /must record the SDK resource version and runtime hash/,
     );
   });
+
+  it("records the changelog a receipt carries", async () => {
+    const root = await fixture({ sdk: sdkRecord([sdkRelease("1.0.0")]) });
+    const release = productRelease("2.0.0", sdkRelease("1.0.0"));
+
+    await record(root, {
+      schemaVersion: 2,
+      product: "element_starter",
+      resource: "element_starter",
+      changelog: "### Fixed\n\n- A blip is gone.",
+      ...release,
+    });
+
+    const stored = JSON.parse(
+      await readFile(path.join(root, "products", "element_starter.json"), "utf8"),
+    );
+    assert.equal(stored.releases[0].changelog, "### Fixed\n\n- A blip is gone.");
+    await catalog(root, "--write");
+  });
+
+  it("omits the changelog when a receipt carries none", async () => {
+    const root = await fixture({ sdk: sdkRecord([sdkRelease("1.0.0")]) });
+    const release = productRelease("2.0.0", sdkRelease("1.0.0"));
+
+    await record(root, {
+      schemaVersion: 2,
+      product: "element_starter",
+      resource: "element_starter",
+      ...release,
+    });
+
+    const stored = JSON.parse(
+      await readFile(path.join(root, "products", "element_starter.json"), "utf8"),
+    );
+    assert.equal(stored.releases[0].changelog, undefined);
+  });
+
+  it("refuses a release whose changelog is not a string", async () => {
+    const root = await fixture({
+      sdk: sdkRecord([sdkRelease("1.0.0")]),
+      products: {
+        element_starter: productRecord([
+          { ...productRelease("2.0.0", sdkRelease("1.0.0")), changelog: 7 },
+        ]),
+      },
+    });
+
+    await assert.rejects(catalog(root, "--write"), /invalid changelog/);
+  });
 });
 
 async function fixture({ sdk, products = {} }) {

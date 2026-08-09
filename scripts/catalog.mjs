@@ -111,6 +111,9 @@ function validateReleases(releases, file, isProduct) {
     ) {
       throw new Error(`${file}: release ${release.version} records no portal asset`);
     }
+    if (release.changelog !== undefined && typeof release.changelog !== "string") {
+      throw new Error(`${file}: release ${release.version} carries an invalid changelog`);
+    }
     if (isProduct) {
       if (
         semver(release?.sdk?.version) === null ||
