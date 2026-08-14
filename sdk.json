@@ -139,6 +139,30 @@
         "versionId": 1578970
       },
       "publishedAt": "2026-08-14T12:53:22.936Z"
+    },
+    {
+      "version": "0.1.0-alpha.9",
+      "channel": "candidate",
+      "source": {
+        "repository": "element-laboratories/platform",
+        "tag": "sdk-v0.1.0-alpha.9",
+        "commit": "94d8cd1a2fc7ac3d8685f96e2bed450ff09dffca"
+      },
+      "artifact": {
+        "sha256": "5a1cacf5341a3ef4a66004a0a913c3af0e8c10f6e72238616907b3d46f6913cf",
+        "bytes": 128948
+      },
+      "runtime": {
+        "hash": "85c9c23fedd7afd05295ffb0b45008b27b7ba0c45404c5fdc3dd2e0b67689b80",
+        "packageVersion": "1.0.0-alpha.21",
+        "compilerVersion": "2.0.0-alpha.16"
+      },
+      "cfx": {
+        "assetId": 1007363,
+        "versionId": 1579825
+      },
+      "publishedAt": "2026-08-14T20:01:51.626Z",
+      "changelog": "A new version of element_sdk. Install it on your server to keep your Element Labs products running."
     }
   ]
 }
