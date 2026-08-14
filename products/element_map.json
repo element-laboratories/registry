@@ -94,6 +94,30 @@
         "versionId": 1568708
       },
       "publishedAt": "2026-08-09T23:03:31.099Z"
+    },
+    {
+      "version": "0.1.0-alpha.8",
+      "channel": "candidate",
+      "source": {
+        "repository": "element-laboratories/product-map",
+        "tag": "v0.1.0-alpha.8",
+        "commit": "439650401b9d2f356ad8e4a43d248431fb3b96be"
+      },
+      "artifact": {
+        "sha256": "ac944c583bd5e92811e15de48b0608cc14cd680302aa0790fbaed6780141b3a7",
+        "bytes": 1426544
+      },
+      "sdk": {
+        "version": "1.0.0-alpha.19",
+        "resourceVersion": "0.1.0-alpha.8",
+        "runtimeHash": "e5ba2d71277e46140ce5000b7a9c02518ad5a8e440021327e4f9961d54d2e78f"
+      },
+      "cfx": {
+        "assetId": 1061793,
+        "versionId": 1579240
+      },
+      "publishedAt": "2026-08-14T14:58:19.008Z",
+      "changelog": "Free marker colours, a hidden world behind an open map, and a map that is noticeably faster to open\nand move.\n\n### Breaking\n\n- `blips.waypointSprite` and `blips.waypointColor` are now `blips.waypointMarkerSprite` and\n  `blips.waypointMarkerColor`.\n  Action: rename the keys in `configs/blips.jsonc`; the old ones fall back to the defaults.\n- `blips.coneAlpha` now covers the `0` to `255` range it documents, and its default moves from `60`\n  to `153` so cones look exactly as they did.\n  Action: re-read a value of your own against the new scale, where `128` is half opaque.\n\n### Added\n\n- `blips.poiAtCursor` places personal points of interest under the mouse pointer instead of at the\n  centre of the map.\n- A marker can carry `rgb`, a colour outside the game's palette, and `bright`, the light variant of\n  a palette colour. Both are drawn on the map, in the legend and on pages.\n- `visual.hideWorld` hides every player, ped and vehicle while the map is open, so a transparent map\n  no longer shows the world moving under it. A view can turn it off with its own `visual` override.\n\n### Fixed\n\n- A new marker no longer appears in the corner of the screen before jumping to where it belongs.\n- Setting a destination no longer freezes the game while the route is drawn.\n- The scale bar and the place name measure from the ground under the camera instead of the player's\n  own height.\n- A marker's `followPlayer`, `edgeIndicator` and `clickable` now take effect when they are changed\n  after the marker was created.\n- Pointing at a marker matches the marker the map highlights on a display that is not 16:9.\n- A marker kept off the legend with `hiddenOnLegend`, or made invisible with `alpha = 0`, can no\n  longer be clicked and no longer stretches the area the map can be panned to.\n- A marker removed by another resource leaves the map as soon as it is removed.\n- A page is taken down when the resource that registered it stops.\n- The destination row in the legend follows the map's own destination marker rather than the first\n  marker it finds on the game's flag sprite.\n- A marker whose name comes from a registered text key shows that text in the legend instead of the\n  key.\n\n### Performance\n\n- The map opens faster and without the stall it used to arrive with on the frame the key is pressed.\n- Moving, rotating and panning the map costs much less per frame.\n- Markers that move while the map is open cost less to follow.\n\n### Security\n\n- The address of an embedded page is checked more strictly, and a host that imitates a resource on\n  this server is refused. Addresses that were legitimate are unaffected."
     }
   ]
 }
