@@ -1,0 +1,41 @@
+name: Publish catalog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.json
+      - sdk.json
+      - products/**
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-catalog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+      - run: npm run check
+      - name: Push the catalog into telemetry
+        env:
+          TELEMETRY_URL: ${{ secrets.TELEMETRY_URL }}
+          CATALOG_INGEST_TOKEN: ${{ secrets.CATALOG_INGEST_TOKEN }}
+        run: |
+          if [ -z "$TELEMETRY_URL" ] || [ -z "$CATALOG_INGEST_TOKEN" ]; then
+            echo "::warning::No TELEMETRY_URL/CATALOG_INGEST_TOKEN configured; the catalog was not pushed."
+            exit 0
+          fi
+          npm run push

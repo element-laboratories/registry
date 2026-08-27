@@ -7,7 +7,8 @@
     "check": "node scripts/catalog.mjs --check",
     "test": "node --test \"scripts/*.test.mjs\"",
     "generate": "node scripts/catalog.mjs --write",
-    "record": "node scripts/record-release.mjs"
+    "record": "node scripts/record-release.mjs",
+    "push": "node scripts/push-catalog.mjs"
   },
   "engines": {
     "node": ">=24.18.0 <25"
